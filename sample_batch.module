@@ -1,0 +1,81 @@
+<?php
+
+define('SAMPLE_BATCH_MAX', 50);
+define('SAMPLE_BATCH_ITERATION_LIMIT', 5);
+
+/**
+ * Implements hook_menu();
+ */
+function sample_batch_menu() {
+  $items = array();
+  $items['sample_batch'] = array(
+    'title' => 'Sample batch operation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sample_batch_simple_form'),
+    'access callback' => TRUE,
+  );
+
+  return $items;
+}
+
+function sample_batch_simple_form($form, $form_state) {
+  $form['description'] = array(
+    '#type' => 'markup',
+    '#markup' => t('Sample form to try out batch operation'),
+  );
+
+  $form['actions']['submmit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Launch batch operation'),
+  );
+  
+  return $form;
+}
+
+function sample_batch_simple_form_submit($form, $form_state) {
+  $batch = array(
+    'operations' => array(
+      array('sample_batch_operation'),
+    ),
+    'finished' => 'sample_batch_operation_finished',
+    'title' => t('Processing Example Batch'),
+    'init_message' => t('Example Batch is starting.'),
+    'progress_message' => t('Processed @current out of @total.'),
+    'error_message' => t('An error has occurred, unable to complete the operation'),
+  );
+  batch_set($batch);
+  batch_process();
+}
+
+/**
+ * Simple batch operation to print Fibonacci sequence
+ */
+function sample_batch_operation(&$context) {
+  if (!isset($context['sandbox']['progress'])) {
+    $context['sandbox']['max'] = SAMPLE_BATCH_MAX;
+    $context['sandbox']['progress'] = 0;
+    $context['sandbox']['prev_value'] = 0;
+    $context['sandbox']['current_value'] = 1;
+  }
+  
+  $counter = 0;
+  $limit = SAMPLE_BATCH_ITERATION_LIMIT;
+  $value = 0;
+  $sandbox = &$context['sandbox'];
+  while ($counter < $limit && $sandbox['progress'] < $sandbox['max']) {
+    $value = $sandbox['prev_value'] + $sandbox['current_value'];
+    watchdog(__FUNCTION__, $value);
+    
+    if($value == 144 && !$sandbox['exception']) {
+      $sandbox['exception'] = TRUE;
+      throw new Exception;
+    }
+    
+    $sandbox['prev_value'] = $sandbox['current_value'];
+    $sandbox['current_value'] = $value;
+    $sandbox['progress']++;
+    $counter++;
+  }
+
+  $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+}
